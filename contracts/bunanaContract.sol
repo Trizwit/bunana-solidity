@@ -120,16 +120,16 @@ contract CryptoDevs is ERC721URIStorage {
     uint256 mintip = 0.000000001 ether;
 
     //  _price is the price of one Crypto Dev NFT
-    uint256 public _price = 0.0001 ether;
+    uint256 private _price = 0.0001 ether;
 
     // _paused is used to pause the contract in case of an emergency
-    bool public _paused;
+    bool private _paused;
 
     // max number of CryptoDevs
-    uint256 public maxTokenIds = 20;
+    uint256 private maxTokenIds = 20;
 
     // total number of tokenIds minted
-    uint256 public tokenIds;
+    uint256 private tokenIds;
 
     address _realowner;
 
@@ -172,7 +172,8 @@ contract CryptoDevs is ERC721URIStorage {
         // _tablePrefix=string(abi.encodePacked(_nftName,"_",_nftSymbol));
     }
 
-    function safeMint(address to) public returns (uint256) {
+    function safeMint() public payable returns (uint256) {
+        require(msg.value > 0.005 ether, "Insufficient funds");
         uint256 newItemId = _tokenIds.current();
         string memory values = string.concat(
             Strings.toString(newItemId),
@@ -200,14 +201,14 @@ contract CryptoDevs is ERC721URIStorage {
                 values
             )
         );
-        _safeMint(to, newItemId, ""); /// MINT ONE NFT
+        _safeMint(msg.sender, newItemId, ""); /// MINT ONE NFT
         _tokenIds.increment();
         return newItemId;
     }
 
-    function _baseURI() internal view override returns (string memory) {
-        return _baseURIString;
-    }
+    // function _baseURI() internal view override returns (string memory){
+    //     return _baseURIString;
+    // }
 
     function tokenURI(
         uint256 tokenId
