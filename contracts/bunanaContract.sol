@@ -1,30 +1,26 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@tableland/evm/contracts/ITablelandTables.sol";
 import "@tableland/evm/contracts/utils/SQLHelpers.sol";
-import "@tableland/evm/contracts/utils/URITemplate.sol";
+// import "@tableland/evm/contracts/utils/URITemplate.sol";
 import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/math/SafeMath.sol";
 
 contract nftFactory {
-    string private constant _factoryTablePrefix = "bunana";
-    ITablelandTables private _factoryTableland;
+    ITablelandTables private constant _factoryTableland =
+        ITablelandTables(0xDA8EA22d092307874f30A1F277D1388dca0BA97a);
     uint256 public _factoryTableId;
-    address private latestNFTContract;
     uint256 private indx = 0;
 
     constructor() {
-        _factoryTableland = ITablelandTables(
-            0xDA8EA22d092307874f30A1F277D1388dca0BA97a
-        );
         _factoryTableId = _factoryTableland.createTable(
             address(this),
             SQLHelpers.toCreateFromSchema(
-                "id int, cid text, address text",
-                _factoryTablePrefix
+                "id int, cid text, address text, tableid text",
+                "bunana"
             )
         );
     }
@@ -32,15 +28,18 @@ contract nftFactory {
     function insertToTable(
         string memory cid,
         uint256 index,
-        address addr
-    ) public {
+        address addr,
+        string memory tableid
+    ) private {
         string memory values = string.concat(
             "'",
             Strings.toString(index),
             "','",
             cid,
             "','",
-            string(abi.encodePacked(addr)),
+            Strings.toHexString(uint160(addr), 20),
+            "','",
+            tableid,
             "'"
         );
 
@@ -49,9 +48,9 @@ contract nftFactory {
             address(this),
             _factoryTableId,
             SQLHelpers.toInsert(
-                _factoryTablePrefix, // prefix
+                "bunana", // prefix
                 _factoryTableId, // table id
-                "id,cid,address",
+                "id,cid,address,tableid",
                 values
             )
         );
@@ -72,61 +71,51 @@ contract nftFactory {
             imageURL,
             cid
         );
-        indx++;
-        // nftCollections.push(address(newcollection));
-        insertToTable(cid, indx, address(newcollection));
-        latestNFTContract = address(newcollection);
+        insertToTable(
+            cid,
+            indx,
+            address(newcollection),
+            newcollection._metadataTable()
+        );
+        indx = indx + 1;
     }
-
-    // function getDeployedcollections() public view returns (address[] memory) {
-    //     return nftCollections;
-    // }
-
-    // function getDeployedcids() public view returns (string[] memory) {
-    //     return CID;
-    // }
 }
 
 contract CryptoDevs is ERC721URIStorage {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIds;
 
-    string private _baseURIString =
+    string private constant _baseURIString =
         "https://testnet.tableland.network/query?unwrap=true&extract=true&s=";
     //string private _contractURIString = "https://testnet.tableland.network/query?unwrap=true&extract=true&s=";
-    ITablelandTables private _tableland;
-    string _metadataTable;
-    uint256 public _metadataTableId;
-    string private _tablePrefix = "ching";
+    ITablelandTables private constant _tableland =
+        ITablelandTables(0xDA8EA22d092307874f30A1F277D1388dca0BA97a);
+    string public _metadataTable;
+    uint256 private _metadataTableId;
+    //string private _tablePrefix="ching";
     string private _imageURI;
     string private _nftName;
     string private _nftSymbol;
     string private _nftDescription;
-    string private _result;
     uint256 private tableId;
     string private _cid;
-    string public trial;
-    string public trial2;
+    uint256 private totalLikes = 0;
+    uint256 private totalShares = 0;
+    uint256 private totalComments = 0;
 
-    /**
-     * @dev _baseTokenURI for computing {tokenURI}. If set, the resulting URI for each
-     * token will be the concatenation of the `baseURI` and the `tokenId`.
-     */
-
-    string _baseTokenURI;
     using SafeMath for uint256;
-    uint256 like;
+    //uint256 like;
 
-    uint256 mintip = 0.000000001 ether;
+    uint256 private constant mintip = 0.000000001 ether;
 
     //  _price is the price of one Crypto Dev NFT
-    uint256 private _price = 0.0001 ether;
+    uint256 private constant _price = 0.0001 ether;
 
     // _paused is used to pause the contract in case of an emergency
     bool private _paused;
 
     // max number of CryptoDevs
-    uint256 private maxTokenIds = 20;
+    uint256 private constant maxTokenIds = 20;
 
     // total number of tokenIds minted
     uint256 private tokenIds;
@@ -155,39 +144,27 @@ contract CryptoDevs is ERC721URIStorage {
         _imageURI = imageURL;
         _nftDescription = nftDescription;
         _cid = cid;
-        _tableland = ITablelandTables(
-            0xDA8EA22d092307874f30A1F277D1388dca0BA97a
-        );
+        // _tableland = ITablelandTables(0xDA8EA22d092307874f30A1F277D1388dca0BA97a);
 
         //// CREATE NULL TABLE FOR THIS NFT COLLECTION
         _metadataTableId = _tableland.createTable(
             address(this),
             SQLHelpers.toCreateFromSchema(
-                "id int, stage text, name text, description text, image text, likes int, comments int, shares int, cid text",
-                _tablePrefix
+                "id int, symbol text, name text, description text, image text, likes int, comments int, shares int, cid text",
+                "ching"
             )
         );
-        string memory dat = Strings.toString(_metadataTableId);
-        _metadataTable = string(abi.encodePacked(_tablePrefix, "_5_", dat));
+        _metadataTable = string(
+            abi.encodePacked("ching", "_5_", Strings.toString(_metadataTableId))
+        );
         // _tablePrefix=string(abi.encodePacked(_nftName,"_",_nftSymbol));
     }
 
     function safeMint() public payable returns (uint256) {
-        require(msg.value > 0.005 ether, "Insufficient funds");
         uint256 newItemId = _tokenIds.current();
-        string memory values = string.concat(
-            Strings.toString(newItemId),
-            ",'starting','",
-            _nftName,
-            " ",
-            Strings.toString(newItemId),
-            "','",
-            _nftDescription,
-            "','",
-            _imageURI,
-            "',0,0,0,'",
-            _cid,
-            "'"
+        require(
+            msg.value > _price && newItemId < maxTokenIds,
+            "Insufficient funds"
         );
 
         //// ADD NEW ROW OF DETAILS FOR EACH NFT MINTED
@@ -195,20 +172,31 @@ contract CryptoDevs is ERC721URIStorage {
             address(this),
             _metadataTableId,
             SQLHelpers.toInsert(
-                _tablePrefix, // prefix
+                "ching", // prefix
                 _metadataTableId, // table id
-                "id,stage,name,description,image,likes,comments,shares,cid",
-                values
+                "id,symbol,name,description,image,likes,comments,shares,cid",
+                string.concat(
+                    Strings.toString(newItemId),
+                    ",'",
+                    _nftSymbol,
+                    "','",
+                    _nftName,
+                    " ",
+                    Strings.toString(newItemId),
+                    "','",
+                    _nftDescription,
+                    "','",
+                    _imageURI,
+                    "',0,0,0,'",
+                    _cid,
+                    "'"
+                )
             )
         );
         _safeMint(msg.sender, newItemId, ""); /// MINT ONE NFT
         _tokenIds.increment();
         return newItemId;
     }
-
-    // function _baseURI() internal view override returns (string memory){
-    //     return _baseURIString;
-    // }
 
     function tokenURI(
         uint256 tokenId
@@ -229,20 +217,31 @@ contract CryptoDevs is ERC721URIStorage {
             );
     }
 
-    function updateTable(
-        string memory id,
-        string memory likes,
-        string memory shares
-    ) public {
-        /// UPDATE EXISTING ROW OF THE TABLE BY USING ID
+    function updateParam(string memory id, uint cmd) public {
+        string memory values;
+        if (cmd == 0) {
+            totalShares = totalShares + 1;
+            values = string.concat("shares = ", Strings.toString(totalShares));
+        } else if (cmd == 1) {
+            totalLikes = totalLikes + 1;
+            values = string.concat("likes = ", Strings.toString(totalLikes));
+        } else if (cmd == 2) {
+            totalComments = totalComments + 1;
+            values = string.concat(
+                "comments = ",
+                Strings.toString(totalComments)
+            );
+        }
+
+        /// UPDATE EXISTING LIKES OF THE TABLE BY USING ID
         _tableland.runSQL(
             address(this),
             _metadataTableId,
             SQLHelpers.toUpdate(
-                _tablePrefix, //prefix
+                "ching", //prefix
                 _metadataTableId, //table id
                 // setters
-                string.concat("likes = ", likes, ", shares = ", shares),
+                values,
                 // where conditions
                 string.concat("id = ", id)
             )
@@ -262,10 +261,6 @@ contract CryptoDevs is ERC721URIStorage {
         uint256 amount = address(this).balance;
         (bool sent, ) = _owner.call{value: amount}("");
         require(sent, "Failed to send Ether");
-    }
-
-    function likeplus() public {
-        like = like + 1;
     }
 
     function splitshare() public {
